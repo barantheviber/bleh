@@ -30,7 +30,7 @@ sessizce kurulup kurulu kopya tekrar test edilir.
 |---|---|
 | **Grafik** | Canlı mum grafiği (1dk–haftalık): hacim, EMA 20/50, SMA 200, Bollinger, RSI, MACD, artı imleci ve OHLC, botun alım-satım işaretleri, ortalama maliyet çizgisi. Solda izleme listesi. **Platform penceresi** düğmesi sembolü TradingView, Yahoo Finance veya Finviz'de açılır pencerede gösterir. BIST (`THYAO.IS`) ve kripto (`BTC-USD`) grafikleri de çalışır. |
 | **Bot** | Başlat/Durdur, Şimdi çalıştır, Kuru çalıştırma (emir göndermeden plan), Acil durdur, Tümünü kapat. Hesap, pozisyonlar, hedefler, emir geçmişi, varlık eğrisi ve karar günlüğü. |
-| **Backtest** | 8 stratejiyi istediğiniz parametre ve tarihle Yahoo verisi üzerinde S&P 500 (SPY) al-tut ile karşılaştırır. **Araştırma raporu** düğmesi stratejinin nasıl seçildiğini gösterir. |
+| **Backtest** | 9 stratejiyi (al-tut ve sabit ağırlık dahil) istediğiniz parametre ve tarihle Yahoo verisi üzerinde S&P 500 (SPY) al-tut ile karşılaştırır. **Araştırma raporu** düğmesi stratejinin nasıl seçildiğini gösterir. |
 | **13F Kopya** | trader-copycat: bir yatırımcının (Berkshire, Pershing Square, Scion…) son 13F portföyü, çeyrek değişimi, ilk N pozisyonun kopya ağırlıkları. Bu ağırlıklar bota hedef olarak verilebilir. |
 | **Haberler** | trader-news: Yahoo başlıkları ve SEC 8-K dosyalamaları, önemli maddeler işaretli. |
 | **Kongre** | trader-pelosi: ABD Meclis üyelerinin STOCK Act işlem bildirimleri (PTR). |
