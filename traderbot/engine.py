@@ -125,6 +125,15 @@ class BotEngine(object):
             self._save()
         self._journal("resumed", message="Acil durdurma kaldırıldı")
 
+    def reset(self):
+        """Forget the history (a fresh simulated account); keep running or not."""
+        with self._lock:
+            running = self.state.get("running", False)
+            self.state = default_state()
+            self.state["running"] = running
+            self._save()
+        self._journal("reset", message="Bot geçmişi sıfırlandı")
+
     def close_all(self):
         """Panic button: sell everything and halt."""
         self.halt("Kullanıcı tüm pozisyonları kapattı")
