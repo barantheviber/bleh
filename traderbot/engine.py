@@ -9,8 +9,9 @@ One cycle, after `trade_time` (New York) on a day NYSE is open:
   4. passed orders go to the broker (auto mode) or wait for approval
 
 Every tick also values the account and trips the kill switches: a day's loss
-or a drop from the peak beyond the limits halts all new orders until the
-user resumes. The engine has no Qt in it; the UI calls tick() on a timer.
+or a drop from the peak beyond the limits stops all buying until the user
+resumes (sells that cut risk still go through). The user's own halt stops
+everything. The engine has no Qt in it; the UI calls tick() on a timer.
 """
 
 import datetime as dt

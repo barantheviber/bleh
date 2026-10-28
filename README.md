@@ -34,12 +34,13 @@ sessizce kurulup kurulu kopya tekrar test edilir.
 | **13F Kopya** | trader-copycat: bir yatırımcının (Berkshire, Pershing Square, Scion…) son 13F portföyü, çeyrek değişimi, ilk N pozisyonun kopya ağırlıkları. Bu ağırlıklar bota hedef olarak verilebilir. |
 | **Haberler** | trader-news: Yahoo başlıkları ve SEC 8-K dosyalamaları, önemli maddeler işaretli. |
 | **Kongre** | trader-pelosi: ABD Meclis üyelerinin STOCK Act işlem bildirimleri (PTR). |
-| **Ayarlar** | Aracı kurum (simülasyon / Alpaca), tam otomatik ya da onaylı mod, karar saati, risk kuralları ve acil durdurma sınırları, SEC kimliği, Windows ile başlatma. |
+| **Ayarlar** | Aracı kurum (simülasyon / Alpaca), tam otomatik ya da onaylı mod, karar saati, risk kuralları ve acil durum sınırları, SEC kimliği, Windows ile başlatma. |
 
 ### Bot nasıl karar verir
 
-Her işlem gününde, New York saatiyle 10:00'dan sonra (Türkiye'de genelde 17:00)
-bir kez:
+Bot her işlem gününde bir kez, New York saatiyle 10:00'dan sonra çalışır. Bu saat
+Türkiye'de 17:00'dir, ABD kış saatinde (Kasım başı - Mart ortası) 18:00 olur. Her
+çalışmada:
 
 1. Dünkü kapanışa kadarki günlük veriyle stratejinin hedef ağırlıkları hesaplanır.
 2. **trader-rebalance** `plan()`: hedeften 5 puandan fazla sapan pozisyonlar için
@@ -49,9 +50,12 @@ bir kez:
    sınırı, engelli semboller. Açığa satış, kaldıraç ve opsiyon kapalıdır.
 4. Geçen emirler aracıya gönderilir. Onaylı modda her biri sizin onayınızı bekler.
 
-Bot sürekli olarak hesabı da izler. Günün kaybı %5'i ya da zirveden düşüş %25'i
-aşarsa **acil durur** ve siz devam deyinceye kadar yeni emir vermez. Bot, uygulama
-açıkken çalışır. Pencereyi kapatınca tepside çalışmaya devam eder.
+Bot hesabı 30 saniyede bir değerler. Günün kaybı %5'i ya da zirveden düşüş %25'i
+aşarsa **acil duruma** geçer. Siz Bot sekmesinde **Devam et** diyene kadar alım
+yapmaz, yalnızca riski azaltan satışları yapar. **Acil durdur** düğmesi ise siz devam
+diyene kadar her emri durdurur.
+
+Bot, uygulama açıkken çalışır. Pencereyi kapatınca tepside çalışmaya devam eder.
 
 ## Strateji nasıl seçildi
 

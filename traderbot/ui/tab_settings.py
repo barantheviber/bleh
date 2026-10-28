@@ -94,8 +94,8 @@ class SettingsTab(QtWidgets.QWidget):
         bt.addRow(self.sell_untracked)
         bt.addRow(self.autostart)
         bt.addRow(theme.label("Bot, uygulama açıkken (tepside de olur) günde bir kez çalışır. "
-                              "Türkiye saatiyle NY 10:00 genelde 17:00'dir (yaz saati farkına göre "
-                              "16:00-18:00).", "muted", wrap=True))
+                              "NY 10:00, Türkiye saatiyle 17:00'dir; ABD kış saatinde (Kasım başı - "
+                              "Mart ortası) 18:00.", "muted", wrap=True))
 
         # risk
         self.risk_fields = {
@@ -113,15 +113,16 @@ class SettingsTab(QtWidgets.QWidget):
                  "max_order_usd": "Emir başına en fazla (0 = hesap değeri)",
                  "min_order_usd": "En küçük emir", "max_orders_per_day": "Günlük emir sınırı",
                  "rebalance_band_pct": "Dengeleme bandı",
-                 "max_daily_loss_pct": "Günlük zarar → acil durdur",
-                 "max_drawdown_pct": "Zirveden düşüş → acil durdur"}
+                 "max_daily_loss_pct": "Günlük zarar → acil durum",
+                 "max_drawdown_pct": "Zirveden düşüş → acil durum"}
         risk_box = QtWidgets.QGroupBox("Risk kuralları (trader-risk)")
         rf = QtWidgets.QFormLayout(risk_box)
         for k, w in self.risk_fields.items():
             rf.addRow(names[k], w)
         rf.addRow("Asla alma", self.blocked)
-        rf.addRow(theme.label("Açığa satış, kaldıraç ve opsiyon kapalıdır. 0 olan sınır devre dışıdır.",
-                              "muted", wrap=True))
+        rf.addRow(theme.label("Açığa satış, kaldıraç ve opsiyon kapalıdır. 0 olan sınır devre dışıdır. "
+                              "Acil durumda bot alım yapmaz, yalnızca riski azaltan satışları yapar; "
+                              "Bot sekmesinde 'Devam et' ile normale döner.", "muted", wrap=True))
 
         # data
         self.sec_ua = QtWidgets.QLineEdit(s.get("sec_user_agent") or "")
