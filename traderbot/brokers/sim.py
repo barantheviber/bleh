@@ -148,7 +148,8 @@ class SimBroker(Broker):
                 avg = pos["cost"] / pos["qty"] if pos["qty"] > EPS else 0.0
                 self.state["cash"] += q * fill
                 left = pos["qty"] - q
-                pos = {"qty": left, "cost": avg * left} if left > 1e-9 else {"qty": 0.0, "cost": 0.0}
+                # under a millionth of a share is rounding dust, not a position
+                pos = {"qty": left, "cost": avg * left} if left > 1e-6 else {"qty": 0.0, "cost": 0.0}
             if pos["qty"] > EPS:
                 self.state["positions"][sym] = pos
             else:

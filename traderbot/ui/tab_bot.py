@@ -308,7 +308,10 @@ class BotTab(QtWidgets.QWidget):
         live = self.ctx.is_live()
         self.banner.setVisible(live)
         self.banner.setText("CANLI HESAP — GERÇEK PARA · %s" % self.ctx.broker.label)
-        if st["halted"]:
+        if st["halted"] and st.get("halt_kind") == "auto":
+            self.state_label.setText("Bot: ACİL DURUM — yalnız satış")
+            self.state_label.setStyleSheet("color: %s;" % theme.WARN)
+        elif st["halted"]:
             self.state_label.setText("Bot: ACİL DURDURULDU")
             self.state_label.setStyleSheet("color: %s;" % theme.DOWN)
         elif st["running"]:

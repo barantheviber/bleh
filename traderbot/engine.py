@@ -39,6 +39,7 @@ class EngineError(Exception):
 
 def default_state():
     return {"version": STATE_VERSION, "running": False, "halted": False, "halt_reason": "",
+            "halt_kind": "",
             "last_run_date": None, "day": {}, "peak_equity": None, "pending": [],
             "placed": [], "equity_history": [], "last_cycle": None}
 
@@ -120,18 +121,32 @@ class BotEngine(object):
             self._save()
         self._journal("stopped", message="Bot durduruldu")
 
-    def halt(self, reason):
+    def halt(self, reason, kind="manual"):
+        """kind "manual" (the user's button): nothing trades until resume.
+        kind "auto" (a kill switch): the bot keeps running but only sells, so
+        the strategy can still cut risk in a crash; it never adds risk."""
         with self._lock:
             self.state["halted"] = True
             self.state["halt_reason"] = reason
+            self.state["halt_kind"] = kind
             self.state["pending"] = []
             self._save()
-        self._journal("halted", message="ACİL DURDURMA: %s" % reason)
+        extra = " · yalnızca riski azaltan satışlar yapılacak" if kind == "auto" else ""
+        self._journal("halted", message="ACİL DURDURMA: %s%s" % (reason, extra))
+
+    def sells_only(self):
+        with self._lock:
+            return bool(self.state["halted"]) and self.state.get("halt_kind") == "auto"
+
+    def manually_halted(self):
+        with self._lock:
+            return bool(self.state["halted"]) and self.state.get("halt_kind") != "auto"
 
     def resume(self):
         with self._lock:
             self.state["halted"] = False
             self.state["halt_reason"] = ""
+            self.state["halt_kind"] = ""
             # a resumed bot measures its next drawdown from here
             self.state["peak_equity"] = None
             self.state["day"] = {}
@@ -183,9 +198,8 @@ class BotEngine(object):
             return {"status": status, "equity": equity, "ran": False}
         self._kill_switches(equity, status)
         with self._lock:
-            halted = self.state["halted"]
             done_today = self.state["last_run_date"] == status["ny"].date().isoformat()
-        if halted or done_today or not status["open"]:
+        if self.manually_halted() or done_today or not status["open"]:
             return {"status": status, "equity": equity, "ran": False}
         if status["ny"].time() < _parse_time(self.settings.get("trade_time") or "10:00"):
             return {"status": status, "equity": equity, "ran": False}
@@ -229,10 +243,10 @@ class BotEngine(object):
         dd_lim = float(risk.get("max_drawdown_pct") or 0)
         if day_lim and start and equity < start * (1 - day_lim / 100.0):
             self.halt("Günlük zarar sınırı aşıldı: %.2f%% (sınır %%%g)"
-                      % (100 * (equity / start - 1), day_lim))
+                      % (100 * (equity / start - 1), day_lim), kind="auto")
         elif dd_lim and peak and equity < peak * (1 - dd_lim / 100.0):
             self.halt("Zirveden düşüş sınırı aşıldı: %.2f%% (sınır %%%g)"
-                      % (100 * (equity / peak - 1), dd_lim))
+                      % (100 * (equity / peak - 1), dd_lim), kind="auto")
 
     # ------------------------------------------------------------ one cycle
 
@@ -294,6 +308,10 @@ class BotEngine(object):
             self._cycle.release()
 
     def _run_cycle(self, dry_run):
+        if not dry_run and self.manually_halted():
+            return {"ok": False, "error": "Bot acil durdurulmuş: önce 'Devam et' deyin "
+                                          "(kuru çalıştırma yine yapılabilir)"}
+        sells_only = self.sells_only()
         status = market_clock.status(self.now())
         today = status["ny"].date().isoformat()
         try:
@@ -321,9 +339,16 @@ class BotEngine(object):
         passed = [o for o, r in zip(orders, verdict["results"]) if r["verdict"] == "PASS"]
         blocked = [dict(r, order=o) for o, r in zip(orders, verdict["results"])
                    if r["verdict"] != "PASS"]
+        if sells_only:
+            held_back = [o for o in passed if o["side"] == "buy"]
+            passed = [o for o in passed if o["side"] == "sell"]
+            blocked += [{"symbol": o["symbol"], "side": "buy", "order": o, "verdict": "HOLD",
+                         "reasons": ["acil durum: kill switch açıkken alım yapılmaz"]}
+                        for o in held_back]
         summary = {"ok": True, "date": today, "targets": info, "rows": plan["rows"],
                    "notes": plan["notes"], "orders": orders, "passed": len(passed),
-                   "blocked": blocked, "dry_run": dry_run, "placed": []}
+                   "blocked": blocked, "dry_run": dry_run, "placed": [],
+                   "sells_only": sells_only}
         self._journal("plan", message="%s: %d emir, %d geçti, %d engellendi" % (
             info["name"], len(orders), len(passed), len(blocked)),
             targets=info["weights"], as_of=info["as_of"], orders=orders,
@@ -349,7 +374,7 @@ class BotEngine(object):
     def execute(self, orders, today=None):
         """Place orders: sells first, then buys sized to the cash actually there."""
         today = today or market_clock.status(self.now())["ny"].date().isoformat()
-        sells = [o for o in orders if o["side"] == "sell"]
+        sells = [self._exact_sell(o) for o in orders if o["side"] == "sell"]
         buys = [o for o in orders if o["side"] == "buy"]
         out = []
         for o in sells:
@@ -379,6 +404,21 @@ class BotEngine(object):
                 out.append(self._place(o, today))
         return out
 
+    def _exact_sell(self, order):
+        """trader-rebalance writes share counts to 4 decimals. When a sell is
+        meant to empty a position, send the exact quantity held instead, so it
+        neither leaves dust behind nor (rounded up) asks to sell more than
+        the account has, which a broker rejects."""
+        if order.get("qty") is None:
+            return order
+        try:
+            held = {p.symbol: p.qty for p in self.broker.positions()}.get(order["symbol"])
+        except BrokerError:
+            return order
+        if held and abs(float(order["qty"]) - held) < 1e-3:
+            order = dict(order, qty=("%.9f" % held).rstrip("0").rstrip("."))
+        return order
+
     def approve(self, fingerprint):
         if not self._cycle.acquire(timeout=self.cycle_timeout):
             raise EngineError("Bot şu an başka bir işlem yapıyor, biraz sonra deneyin")
@@ -388,6 +428,8 @@ class BotEngine(object):
             self._cycle.release()
 
     def _approve(self, fingerprint):
+        if self.manually_halted():
+            raise EngineError("Bot acil durdurulmuş: önce 'Devam et' deyin")
         with self._lock:
             match = [p for p in self.state["pending"] if p.get("fingerprint") == fingerprint]
             self.state["pending"] = [p for p in self.state["pending"]
