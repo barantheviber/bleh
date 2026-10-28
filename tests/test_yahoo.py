@@ -5,7 +5,7 @@ import urllib.error
 import pytest
 
 from traderbot.data.yahoo import (DataError, YahooClient, parse_chart, quote_from_meta,
-                                  range_start)
+                                  range_start, yahoo_symbol)
 
 # Shape of a real v8 chart response for SPY, interval=1d, range=5d (values trimmed).
 # The third day has a null row, which Yahoo sends around halts and data gaps.
@@ -180,3 +180,14 @@ def test_search_parses_quotes():
     res = YahooClient(opener=FakeNet(json.dumps(body).encode())).search("apple")
     assert [r["symbol"] for r in res] == ["AAPL", "THYAO.IS"]
     assert res[1]["name"] == "TURK HAVA YOLLARI"
+
+
+def test_class_shares_map_to_yahoo_spelling():
+    assert yahoo_symbol("brk.b") == "BRK-B"
+    assert yahoo_symbol("LEN.B") == "LEN-B"
+    assert yahoo_symbol("THYAO.IS") == "THYAO.IS"
+    assert yahoo_symbol("BT.L") == "BT.L"
+    assert yahoo_symbol("BTC-USD") == "BTC-USD"
+    net = FakeNet(json.dumps(CHART).encode())
+    bars, _ = YahooClient(opener=net).chart("BRK.B", "1d", range_="5d")
+    assert "/chart/BRK-B?" in net.urls[0] and bars.symbol == "BRK.B"

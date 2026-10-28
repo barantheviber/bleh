@@ -236,6 +236,16 @@ class SettingsTab(QtWidgets.QWidget):
         if ua and ("@" not in ua or "you@example.com" in ua):
             QtWidgets.QMessageBox.warning(self, "SEC kimliği", "Ad Soyad ve gerçek bir e-posta girin.")
             return
+        if self.alpaca_radio.isChecked() and self.sell_untracked.isChecked() and not (
+                s.get("broker") == "alpaca" and s.get("sell_untracked")):
+            ans = QtWidgets.QMessageBox.warning(
+                self, "Hesabın tamamı",
+                "'Hesabın tamamını yönet' açık: bot, Alpaca hesabınızda stratejide olmayan "
+                "BÜTÜN pozisyonları satar (elle aldıklarınız dahil).\n\nBöyle kalsın mı? "
+                "'Hayır' derseniz bot yalnızca kendi stratejisindeki sembollere dokunur.",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
+            if ans != QtWidgets.QMessageBox.Yes:
+                self.sell_untracked.setChecked(False)
         risk = {k: (w.value() if not isinstance(w, QtWidgets.QSpinBox) else int(w.value()))
                 for k, w in self.risk_fields.items()}
         risk["max_order_usd"] = risk["max_order_usd"] or None

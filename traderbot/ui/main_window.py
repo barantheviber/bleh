@@ -3,7 +3,7 @@
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from .. import APP_NAME, __version__, market_clock
-from . import theme
+from . import theme, workers
 from .tab_backtest import BacktestTab
 from .tab_bot import BotTab
 from .tab_chart import ChartTab
@@ -175,5 +175,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.log.detach()
         if self.tray:
             self.tray.hide()
+        workers.wait_all(5000)  # let running fetches land before Qt objects go away
         event.accept()
         QtWidgets.QApplication.instance().quit()

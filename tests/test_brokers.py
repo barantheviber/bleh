@@ -7,7 +7,7 @@ import pytest
 
 from traderbot.brokers import BrokerError
 from traderbot.brokers.alpaca import AlpacaBroker
-from traderbot.brokers.sim import SimBroker
+from traderbot.brokers.sim import SimBroker, us_listed
 
 OPEN = lambda now=None: {"open": True}     # noqa: E731
 CLOSED = lambda now=None: {"open": False}  # noqa: E731
@@ -199,3 +199,10 @@ def test_alpaca_unreachable():
 def test_alpaca_paper_and_live_urls():
     assert AlpacaBroker("K", "S", paper=True).base == "https://paper-api.alpaca.markets"
     assert AlpacaBroker("K", "S", paper=False).base == "https://api.alpaca.markets"
+
+
+def test_us_listed():
+    for sym in ("SPY", "AAPL", "BRK.B", "BRK-B", "LEN.B"):
+        assert us_listed(sym), sym
+    for sym in ("THYAO.IS", "BTC-USD", "EURUSD=X", "^GSPC", "BT.L"):
+        assert not us_listed(sym), sym

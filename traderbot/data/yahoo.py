@@ -11,6 +11,7 @@ timeout, a retry with backoff, and a second host to fall back to.
 import calendar
 import gzip
 import json
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -29,6 +30,15 @@ MAX_RANGE = {
     "1d": "max", "5d": "max", "1wk": "max", "1mo": "max", "3mo": "max",
 }
 INTRADAY = {"1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h"}
+CLASS_SHARE = re.compile(r"^([A-Z]{1,5})\.([ABC])$")
+
+
+def yahoo_symbol(symbol):
+    """BRK.B (how SEC filings and Alpaca write a share class) -> BRK-B (Yahoo).
+    Exchange suffixes such as THYAO.IS are left alone."""
+    s = (symbol or "").strip().upper()
+    m = CLASS_SHARE.match(s)
+    return "%s-%s" % m.groups() if m else s
 
 
 class DataError(Exception):
@@ -126,8 +136,10 @@ class YahooClient(object):
             params["period2"] = int(end if end is not None else time.time())
         else:
             params["range"] = range_
-        data = self._get_json("/v8/finance/chart/" + urllib.parse.quote(symbol), params)
+        data = self._get_json("/v8/finance/chart/" + urllib.parse.quote(yahoo_symbol(symbol)),
+                              params)
         bars, meta = parse_chart(data, symbol, interval)
+        bars.symbol = symbol  # keep the caller's spelling (BRK.B) as the key
         got = meta.get("dataGranularity")
         if got and got != interval and not (interval == "1h" and got == "60m"):
             raise DataError("Yahoo %s yerine %s aralığında veri döndürdü (%s)" % (interval, got, symbol))

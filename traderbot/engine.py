@@ -56,6 +56,11 @@ class BotEngine(object):
         self.sleep = sleep
         self._lock = threading.RLock()
         self._busy = threading.Lock()
+        # one cycle or approval at a time: the timer and a "run now" click
+        # must never both place today's orders
+        self._cycle = threading.Lock()
+        self.cycle_timeout = 120.0
+        self._last_error = (None, 0.0)
         self.state = self._load()
 
     # ------------------------------------------------------------ state
@@ -78,6 +83,14 @@ class BotEngine(object):
             os.replace(tmp, self.state_path)
 
     def _journal(self, kind, **payload):
+        if kind == "error":
+            # the same error every 30 seconds (an internet outage) is written
+            # once, then again only after 10 minutes
+            msg, at = self._last_error
+            now = time.monotonic()
+            if payload.get("message") == msg and now - at < 600:
+                return None
+            self._last_error = (payload.get("message"), now)
         rec = {"at": self.now().replace(microsecond=0).isoformat() + "Z", "kind": kind}
         rec.update(payload)
         try:
@@ -273,6 +286,14 @@ class BotEngine(object):
 
     def run_cycle(self, dry_run=False):
         """Plan, check and (unless dry_run) place today's orders."""
+        if not self._cycle.acquire(timeout=self.cycle_timeout):
+            return {"ok": False, "error": "Bot şu an başka bir işlem yapıyor, biraz sonra deneyin"}
+        try:
+            return self._run_cycle(dry_run)
+        finally:
+            self._cycle.release()
+
+    def _run_cycle(self, dry_run):
         status = market_clock.status(self.now())
         today = status["ny"].date().isoformat()
         try:
@@ -359,6 +380,14 @@ class BotEngine(object):
         return out
 
     def approve(self, fingerprint):
+        if not self._cycle.acquire(timeout=self.cycle_timeout):
+            raise EngineError("Bot şu an başka bir işlem yapıyor, biraz sonra deneyin")
+        try:
+            return self._approve(fingerprint)
+        finally:
+            self._cycle.release()
+
+    def _approve(self, fingerprint):
         with self._lock:
             match = [p for p in self.state["pending"] if p.get("fingerprint") == fingerprint]
             self.state["pending"] = [p for p in self.state["pending"]

@@ -163,3 +163,24 @@ def test_state_survives_restart(env, tmp_path):
                       str(tmp_path / "journal.jsonl"), now=lambda: NOW)
     assert again.snapshot()["last_run_date"] == "2026-10-28"
     assert again.tick()["ran"] is False
+
+
+def test_cycle_lock_prevents_a_second_concurrent_cycle(env):
+    eng, broker, *_ = env
+    eng.cycle_timeout = 0.05
+    eng._cycle.acquire()
+    try:
+        res = eng.run_cycle()
+    finally:
+        eng._cycle.release()
+    assert res["ok"] is False and "başka bir işlem" in res["error"]
+    assert broker.positions() == []
+
+
+def test_repeated_errors_are_journaled_once(env):
+    eng, broker, data, settings, events = env
+    eng._journal("error", message="Hesap okunamadı: ağ yok")
+    eng._journal("error", message="Hesap okunamadı: ağ yok")
+    eng._journal("error", message="başka bir hata")
+    errors = [p["message"] for k, p in events if k == "error"]
+    assert errors == ["Hesap okunamadı: ağ yok", "başka bir hata"]

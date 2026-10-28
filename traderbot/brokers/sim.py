@@ -9,6 +9,7 @@ any time at their latest price. The account lives in one JSON file.
 import datetime as dt
 import json
 import os
+import re
 import threading
 import uuid
 
@@ -19,6 +20,10 @@ EPS = 1e-9
 
 
 def us_listed(symbol):
+    """US stocks and ETFs trade NYSE hours; BRK.B / BRK-B is a US share class,
+    THYAO.IS or BTC-USD is not."""
+    if re.fullmatch(r"[A-Z]{1,5}[.-][ABC]", symbol):
+        return True
     return "." not in symbol and "-" not in symbol and "=" not in symbol and "^" not in symbol
 
 
