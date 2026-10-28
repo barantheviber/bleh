@@ -76,6 +76,11 @@ def main(argv=None):
                 source = "stooq"
             except Exception as exc2:  # report both failures, keep going
                 err = "%s | stooq: %s" % (err, exc2)
+        if bars is not None and len(bars) > 20:
+            years = (bars.t[-1] - bars.t[0]) / (365.25 * 86400)
+            if years > 0.5 and len(bars) / years < 200:
+                err = "%d rows over %.1f years is not daily data" % (len(bars), years)
+                bars = None
         if bars is None or not len(bars):
             print("FAIL %-6s %s" % (t, err), flush=True)
             failed.append(t)

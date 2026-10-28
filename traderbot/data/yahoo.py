@@ -8,6 +8,7 @@ Yahoo can change or rate-limit these at any time, so every call has a
 timeout, a retry with backoff, and a second host to fall back to.
 """
 
+import calendar
 import gzip
 import json
 import time
@@ -114,13 +115,23 @@ class YahooClient(object):
             raise DataError("Desteklenmeyen aralık: %s" % interval)
         params = {"interval": interval, "includePrePost": "true" if prepost else "false",
                   "events": "div,splits"}
+        range_ = range_ or default_range(interval)
+        if start is None and interval not in INTRADAY:
+            # Yahoo quietly serves monthly bars for range=max even when asked
+            # for 1d, so daily and longer intervals always go by explicit dates
+            end = end if end is not None else time.time()
+            start = range_start(range_, end)
         if start is not None:
             params["period1"] = int(start)
             params["period2"] = int(end if end is not None else time.time())
         else:
-            params["range"] = range_ or default_range(interval)
+            params["range"] = range_
         data = self._get_json("/v8/finance/chart/" + urllib.parse.quote(symbol), params)
-        return parse_chart(data, symbol, interval)
+        bars, meta = parse_chart(data, symbol, interval)
+        got = meta.get("dataGranularity")
+        if got and got != interval and not (interval == "1h" and got == "60m"):
+            raise DataError("Yahoo %s yerine %s aralığında veri döndürdü (%s)" % (interval, got, symbol))
+        return bars, meta
 
     def quote(self, symbol):
         """Latest price from the chart meta (no crumb needed, unlike v7 quote)."""
@@ -143,6 +154,23 @@ class YahooClient(object):
                         "exchange": q.get("exchDisp") or q.get("exchange") or "",
                         "type": q.get("typeDisp") or q.get("quoteType") or ""})
         return out
+
+
+MAX_START = -2208994789  # 1900-01-01: earlier than any listing, as yfinance uses for "max"
+
+
+def range_start(range_, end):
+    """Unix start time for a Yahoo range string ("5d", "6mo", "2y", "ytd", "max")."""
+    r = (range_ or "").strip().lower()
+    if r == "max":
+        return MAX_START
+    if r == "ytd":
+        return calendar.timegm((time.gmtime(end).tm_year, 1, 1, 0, 0, 0, 0, 0, 0))
+    units = {"d": 86400, "wk": 7 * 86400, "mo": 31 * 86400, "y": 366 * 86400}
+    for suffix in ("wk", "mo", "d", "y"):
+        if r.endswith(suffix) and r[:-len(suffix)].isdigit():
+            return int(end - int(r[:-len(suffix)]) * units[suffix])
+    raise DataError("Geçersiz dönem: %s" % range_)
 
 
 def default_range(interval):

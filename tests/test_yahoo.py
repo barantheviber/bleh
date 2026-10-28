@@ -4,7 +4,8 @@ import urllib.error
 
 import pytest
 
-from traderbot.data.yahoo import DataError, YahooClient, parse_chart, quote_from_meta
+from traderbot.data.yahoo import (DataError, YahooClient, parse_chart, quote_from_meta,
+                                  range_start)
 
 # Shape of a real v8 chart response for SPY, interval=1d, range=5d (values trimmed).
 # The third day has a null row, which Yahoo sends around halts and data gaps.
@@ -95,12 +96,47 @@ def test_quote_uses_last_close_before_the_trade_date():
     assert q.name == "SPDR S&P 500 ETF Trust"
 
 
-def test_client_chart_builds_url_and_parses():
+def test_client_daily_uses_explicit_dates_not_range():
     net = FakeNet(json.dumps(CHART).encode())
     bars, _ = YahooClient(opener=net, sleep=lambda s: None).chart("spy", "1d", range_="5d")
     assert len(bars) == 4
-    assert net.urls[0].startswith("https://query1.finance.yahoo.com/v8/finance/chart/SPY?")
-    assert "range=5d" in net.urls[0] and "interval=1d" in net.urls[0]
+    url = net.urls[0]
+    assert url.startswith("https://query1.finance.yahoo.com/v8/finance/chart/SPY?")
+    assert "interval=1d" in url and "period1=" in url and "period2=" in url
+    assert "range=" not in url
+
+
+def test_client_max_daily_starts_in_1900():
+    net = FakeNet(json.dumps(CHART).encode())
+    YahooClient(opener=net).chart("SPY", "1d", range_="max")
+    assert "period1=-2208994789" in net.urls[0]
+
+
+def test_client_intraday_uses_range():
+    data = json.loads(json.dumps(CHART))
+    data["chart"]["result"][0]["meta"]["dataGranularity"] = "5m"
+    net = FakeNet(json.dumps(data).encode())
+    YahooClient(opener=net).chart("SPY", "5m", range_="1d")
+    assert "range=1d" in net.urls[0] and "period1" not in net.urls[0]
+
+
+def test_client_rejects_downgraded_granularity():
+    data = json.loads(json.dumps(CHART))
+    data["chart"]["result"][0]["meta"]["dataGranularity"] = "1mo"
+    with pytest.raises(DataError) as e:
+        YahooClient(opener=FakeNet(json.dumps(data).encode())).chart("SPY", "1d", range_="max")
+    assert "1mo" in str(e.value)
+
+
+def test_range_start():
+    end = 1761681600  # 2025-10-28 20:00 UTC
+    assert range_start("5d", end) == end - 5 * 86400
+    assert range_start("2y", end) == end - 2 * 366 * 86400
+    assert range_start("6mo", end) == end - 6 * 31 * 86400
+    assert range_start("ytd", end) == 1735689600  # 2025-01-01 00:00 UTC
+    assert range_start("max", end) == -2208994789
+    with pytest.raises(DataError):
+        range_start("forever", end)
 
 
 def test_client_retries_on_second_host_after_network_error():
