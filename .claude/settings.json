@@ -1,0 +1,21 @@
+{
+  "enabledPlugins": {
+    "i-have-adhd@i-have-adhd": true,
+    "python-development@claude-code-workflows": true,
+    "quantitative-trading@claude-code-workflows": true
+  },
+  "extraKnownMarketplaces": {
+    "i-have-adhd": {
+      "source": {
+        "source": "github",
+        "repo": "ayghri/i-have-adhd"
+      }
+    },
+    "claude-code-workflows": {
+      "source": {
+        "source": "github",
+        "repo": "wshobson/agents"
+      }
+    }
+  }
+}
