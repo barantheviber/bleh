@@ -2,7 +2,8 @@
   "enabledPlugins": {
     "i-have-adhd@i-have-adhd": true,
     "python-development@claude-code-workflows": true,
-    "quantitative-trading@claude-code-workflows": true
+    "quantitative-trading@claude-code-workflows": true,
+    "claude-mem@thedotmack": true
   },
   "extraKnownMarketplaces": {
     "i-have-adhd": {
@@ -15,6 +16,12 @@
       "source": {
         "source": "github",
         "repo": "wshobson/agents"
+      }
+    },
+    "thedotmack": {
+      "source": {
+        "source": "github",
+        "repo": "thedotmack/claude-mem"
       }
     }
   }
