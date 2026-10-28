@@ -77,6 +77,25 @@ def test_realized_vol_of_steady_growth_is_zero():
     assert np.all(np.isnan(v[:20])) and np.allclose(v[20:], 0, atol=1e-12)
 
 
+def test_leading_nan_does_not_poison_later_values():
+    """Panels hold NaN before a fund's first day; indicators must start
+    cleanly once data exists (a cumsum over NaN used to break sma)."""
+    x = 100 + np.cumsum(np.random.default_rng(4).normal(0, 1, 300))
+    lead = np.concatenate([np.full(50, np.nan), x])
+    assert close_to(ind.sma(lead, 20)[50:], ind.sma(x, 20))
+    assert close_to(ind.rsi(lead, 14)[50:], ind.rsi(x, 14))
+    assert close_to(ind.ema(lead, 20)[50:], ind.ema(x, 20))
+    assert close_to(ind.atr(lead + 1, lead - 1, lead, 14)[50:], ind.atr(x + 1, x - 1, x, 14))
+    assert np.isnan(ind.rsi(lead, 14)[:64]).all()
+
+
+def test_sma_window_with_a_gap_is_nan_only_there():
+    x = np.arange(10, dtype=float)
+    x[4] = np.nan
+    out = ind.sma(x, 3)
+    assert np.isnan(out[4:7]).all() and out[7] == 6 and out[3] == 2
+
+
 @pytest.mark.parametrize("fn", [
     lambda x: ind.sma(x, 20), lambda x: ind.ema(x, 20), lambda x: ind.rsi(x, 14),
     lambda x: ind.rsi(x, 2), lambda x: ind.macd(x)[1], lambda x: ind.bollinger(x)[1],

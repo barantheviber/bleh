@@ -16,13 +16,18 @@ def _arr(x):
 
 
 def sma(x, n):
+    """Simple moving average. A window holding any NaN (e.g. days before a
+    fund existed) is NaN; later windows are not affected."""
     x = _arr(x)
     out = np.full(len(x), np.nan)
     n = int(n)
     if n <= 0 or len(x) < n:
         return out
-    c = np.cumsum(np.insert(x, 0, 0.0))
-    out[n - 1:] = (c[n:] - c[:-n]) / n
+    bad = ~np.isfinite(x)
+    c = np.cumsum(np.insert(np.where(bad, 0.0, x), 0, 0.0))
+    nbad = np.cumsum(np.insert(bad.astype(np.int64), 0, 0))
+    mean = (c[n:] - c[:-n]) / n
+    out[n - 1:] = np.where(nbad[n:] - nbad[:-n] == 0, mean, np.nan)
     return out
 
 
@@ -74,8 +79,9 @@ def rsi(close, n=14):
     if len(c) <= n:
         return out
     d = np.diff(c)
-    gain = np.concatenate([[np.nan], np.where(d > 0, d, 0.0)])
-    loss = np.concatenate([[np.nan], np.where(d < 0, -d, 0.0)])
+    # a NaN change (no price yet) stays NaN instead of counting as a flat day
+    gain = np.concatenate([[np.nan], np.where(np.isfinite(d), np.where(d > 0, d, 0.0), np.nan)])
+    loss = np.concatenate([[np.nan], np.where(np.isfinite(d), np.where(d < 0, -d, 0.0), np.nan)])
     ag, al = rma(gain, n), rma(loss, n)
     with np.errstate(divide="ignore", invalid="ignore"):
         rs = ag / al
