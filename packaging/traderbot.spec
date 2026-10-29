@@ -11,6 +11,7 @@ def here(*parts):
 
 datas = [
     (here("research", "REPORT.md"), "research"),
+    (here("research", "ARASTIRMA.md"), "research"),
     (here("traderbot", "resources"), os.path.join("traderbot", "resources")),
     (here("traderbot", "skills", "filers.json"), os.path.join("traderbot", "skills")),
     (here("traderbot", "skills", "share_classes.json"), os.path.join("traderbot", "skills")),

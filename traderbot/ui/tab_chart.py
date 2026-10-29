@@ -125,6 +125,8 @@ class Watchlist(QtWidgets.QWidget):
 
 class ChartTab(QtWidgets.QWidget):
     status = QtCore.Signal(str)
+    size_symbol = QtCore.Signal(str)       # open the position calculator
+    alert_symbol = QtCore.Signal(str)      # set up an alert
 
     def __init__(self, ctx, parent=None):
         super().__init__(parent)
@@ -182,6 +184,10 @@ class ChartTab(QtWidgets.QWidget):
         platform.clicked.connect(self.open_platform)
         shot = theme.button("PNG", tip="Grafiği resim olarak kaydet")
         shot.clicked.connect(self._save_png)
+        size = theme.button("Pozisyon hesapla", tip="Riske göre kaç adet alınacağını hesapla")
+        size.clicked.connect(lambda: self.size_symbol.emit(self.symbol))
+        alarm = theme.button("Alarm kur", tip="Bu sembol için fiyat ya da gösterge alarmı")
+        alarm.clicked.connect(lambda: self.alert_symbol.emit(self.symbol))
 
         bar = QtWidgets.QHBoxLayout()
         bar.addWidget(self.sym_box)
@@ -192,6 +198,8 @@ class ChartTab(QtWidgets.QWidget):
         bar.addWidget(ind_btn)
         bar.addWidget(self.live_btn)
         bar.addStretch(1)
+        bar.addWidget(size)
+        bar.addWidget(alarm)
         bar.addWidget(shot)
         bar.addWidget(platform)
         self.note = theme.label("", "muted")

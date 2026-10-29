@@ -53,6 +53,11 @@ DEFAULTS = {
     "copycat": {"cik": "0001067983", "top": 10},
     "news_hours": 48,
     "congress_members": ["pelosi"],
+    "alerts": [],                    # see alerts.py
+    "alert_check_seconds": 60,
+    # Windows notifications from the tray: bot orders, kill switches, alerts
+    "notify": {"orders": True, "halts": True, "alerts": True},
+    "screener": {"universe": "Sektör ETF'leri (SPDR)", "custom": ""},
 }
 
 SECRET_KEYS = ("alpaca_key_id", "alpaca_secret")

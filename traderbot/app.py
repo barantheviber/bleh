@@ -177,10 +177,34 @@ def selftest(report_path):
         st = market_clock.status()
         return {"open": st["open"], "text": market_clock.describe(st)}
 
+    def research_tools():
+        from . import alerts, analysis, events, regime, screener, sizing
+        panel = build_panel(data.daily(["SPY", "BIL"]), calendar_symbol="SPY")
+        r = analysis.returns(panel.close("SPY"))
+        mc = analysis.bootstrap(r, 252, n_paths=200, seed=1)
+        psr = analysis.probabilistic_sharpe(r)
+        dsr, _ = analysis.deflated_sharpe(r, [analysis.moments(r)[0], 0.01, -0.02])
+        built = {}
+        for key in ("gtaa", "tsmom", "risk_parity", "turn_of_month", "ensemble"):
+            built[key] = strategies.create(key).label()
+        tom = strategies.create("turn_of_month").weights(panel)
+        snap = regime.snapshot(panel)
+        evs = events.upcoming(market_clock.status()["ny"].date(), 60)
+        spy = data.daily_bars["SPY"]
+        m = screener.measure(spy)
+        state, _ = alerts.condition(alerts.new_alert("SPY", "sma_up", 50), spy)
+        size = sizing.fixed_fractional(10000, 1.0, 100.0, 95.0)
+        assert np.isfinite(mc["final"][50]) and 0 <= psr <= 1 and 0 <= dsr <= 1
+        assert state is not None and np.isclose(size["shares"], 20.0)
+        assert np.nanmax(tom[:, 0]) == 1.0 and m["mom_6"] is not None
+        return {"psr": round(psr, 3), "dsr": round(dsr, 3), "regime": snap["verdict"],
+                "events": len(evs), "strategies": sorted(built)}
+
     step("strategy_and_backtest", strategy_and_backtest)
     step("engine_dry_run", engine_dry_run)
     step("keystore", keys)
     step("market_clock", clock)
+    step("research_tools", research_tools)
 
     def ui():
         app = _qt_app([sys.argv[0]])
@@ -202,10 +226,19 @@ def selftest(report_path):
         tabs = [win.tabs.tabText(i) for i in range(win.tabs.count())]
         html = widget_html("THYAO.IS", "1d")
         assert "BIST:THYAO" in html
+        # the guide reads its documents from the bundle: proves they were packaged
+        assert "Kaynaklar" in win.guide.view.toPlainText(), "research guide missing"
+        win.tabs.setCurrentWidget(win.market)
+        for _ in range(30):
+            app.processEvents()
+            workers.wait_all(200)
+            app.processEvents()
+        assert win.market.out is not None, "market tab did not load"
+        verdict = win.market.out["snapshot"]["verdict"]
         win.quit()
         app.processEvents()
         return {"tabs": tabs, "webengine": HAVE_WEB, "screenshot": shot,
-                "size": os.path.getsize(shot)}
+                "size": os.path.getsize(shot), "market": verdict}
 
     step("ui", ui)
     report = {"app": APP_NAME, "version": __version__, "python": sys.version.split()[0],
