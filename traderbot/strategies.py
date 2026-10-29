@@ -602,6 +602,28 @@ REGISTRY = {cls.key: cls for cls in (BuyHold, FixedWeights, SmaTrend, GoldenCros
                                      TurnOfMonth, Ensemble)}
 
 
+# Parameter grids of the strategy study (research/study.py); the Backtest tab
+# re-chooses from them in its walk-forward test.
+RESEARCH_GRID = {
+    "sma_trend": [dict(n=n, monthly=m) for n in (100, 150, 200, 250) for m in (False, True)],
+    "golden_cross": [dict(fast=f, slow=s) for f, s in ((20, 100), (50, 150), (50, 200), (100, 250))],
+    "rsi2": [dict(entry=e, exit_n=x) for e in (5, 10, 15) for x in (5, 10)],
+    "dual_momentum": [dict(lookback=m * MONTH) for m in (6, 9, 12)],
+    "sector_rotation": [dict(k=k, lookback=l * MONTH) for k in (2, 3, 4) for l in (3, 6, 12)],
+    "asset_rotation": [dict(k=k, filter=f) for k in (2, 3, 4) for f in ("sma", "abs")],
+    "vol_target": [dict(target=v, n=n) for v in (0.10, 0.15, 0.20) for n in (150, 200)],
+    # round 2
+    "gtaa": [dict(months=m) for m in (6, 8, 10, 12)],
+    "tsmom": [dict(lookback=m * MONTH, vol_n=v) for m in (3, 6, 12) for v in (21, 63)],
+    "risk_parity": [dict(vol_n=v) for v in (21, 63, 126)],
+    "turn_of_month": [dict(before=b, after=a) for b in (1, 2) for a in (2, 3, 4)],
+    "ensemble": [dict(parts=p) for p in ({"vol_target": 0.5, "gtaa": 0.5},
+                                         {"vol_target": 0.5, "tsmom": 0.5},
+                                         {"vol_target": 0.5, "risk_parity": 0.5},
+                                         {"vol_target": 1, "gtaa": 1, "tsmom": 1})],
+}
+
+
 def create(key, **params):
     if key not in REGISTRY:
         raise ValueError("unknown strategy %r" % key)

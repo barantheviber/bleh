@@ -36,6 +36,18 @@ def returns(equity):
     return eq[1:] / eq[:-1] - 1.0
 
 
+def excess_returns(equity, rf_daily):
+    """Daily returns of `equity` minus the cash return of the same days
+    (both arrays on one calendar); days without a value are dropped."""
+    eq = np.asarray(equity, dtype=np.float64)
+    rf = np.nan_to_num(np.asarray(rf_daily, dtype=np.float64))
+    ok = np.isfinite(eq)
+    eq, rf = eq[ok], rf[ok]
+    if len(eq) < 2:
+        return np.zeros(0)
+    return eq[1:] / eq[:-1] - 1.0 - rf[1:]
+
+
 def moments(r):
     """(Sharpe per period with ddof=1, skewness, kurtosis) - kurtosis is
     the raw fourth moment, 3 for a normal distribution."""

@@ -172,3 +172,18 @@ def test_numpy_states_still_fire():
     a = alerts.new_alert("SPY", "sma_up", 20, once=False)
     assert alerts.update(a, np.False_) is False
     assert alerts.update(a, np.True_) is True and a["last_state"] is True
+
+
+def test_trades_from_orders_feed_the_live_statistics():
+    from traderbot.backtest import trades_from_orders
+    from traderbot.brokers.base import Order
+    orders = [Order(symbol="SPY", side="sell", filled_qty="10", filled_avg_price=110.0,
+                    status="filled", filled_at="2026-10-02T15:00:00Z"),
+              Order(symbol="SPY", side="buy", filled_qty="10", filled_avg_price=100.0,
+                    status="filled", filled_at="2026-10-01T15:00:00Z"),
+              Order(symbol="QQQ", side="buy", filled_qty=0, filled_avg_price=None,
+                    status="canceled", created_at="2026-10-01T15:00:00Z")]
+    trades = trades_from_orders(orders)
+    assert [(t.side, t.date) for t in trades] == [("buy", "2026-10-01"), ("sell", "2026-10-02")]
+    s = trade_stats(trades, [1.0], 1.0)
+    assert s["round_trips"] == 1 and np.isclose(s["realized"], 100.0) and s["win_rate"] == 1.0

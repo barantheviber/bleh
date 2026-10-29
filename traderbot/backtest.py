@@ -281,6 +281,20 @@ def metrics(equity, dates, rf_daily=None):
     return out
 
 
+def trades_from_orders(orders):
+    """A broker's filled (or partly filled) orders as Trades, oldest first, so
+    the live account gets the same round-trip statistics as a backtest."""
+    out = []
+    for o in sorted(orders, key=lambda o: o.filled_at or o.created_at or ""):
+        qty = float(o.filled_qty or 0)
+        px = float(o.filled_avg_price or 0)
+        if qty <= 0 or px <= 0 or o.side not in ("buy", "sell"):
+            continue
+        out.append(Trade(str(o.filled_at or o.created_at or "")[:10], o.symbol, o.side, qty, px,
+                         qty * px, 0.0))
+    return out
+
+
 def trade_stats(trades, equity, years):
     """Round trips per symbol on an average-cost basis: a trip opens when a
     position goes from flat to long and closes when it is flat again."""
