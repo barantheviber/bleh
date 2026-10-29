@@ -47,7 +47,7 @@ def test_tabs_and_chart_load(window):
     win, ctx, pump = window
     names = [win.tabs.tabText(i) for i in range(win.tabs.count())]
     assert names == ["Grafik", "Piyasa", "Tarayıcı", "Bot", "Backtest", "Alarmlar", "13F Kopya",
-                     "Haberler", "Kongre", "Ayarlar", "Günlük"]
+                     "Haberler", "Kongre", "Rehber", "Ayarlar", "Günlük"]
     bars = win.chart.chart.bars
     assert bars is not None and len(bars) > 100
     assert "SPY" in win.chart.chart.info.text()
@@ -179,3 +179,13 @@ def test_sizing_dialog_computes_shares(window):
     dlg.stop_value.setValue(5.0)
     assert "Adet: 20.0000" in dlg.result.text()                    # $100 risk / $5 per share
     dlg.close()
+
+
+def test_guide_shows_the_research_documents(window):
+    win, ctx, pump = window
+    tab = win.guide
+    assert tab.current == "ARASTIRMA.md"
+    text = tab.view.toPlainText()
+    assert "Trading araştırması" in text and "Kaynaklar" in text
+    tab.show_doc("REPORT.md")
+    assert "Strateji araştırması" in tab.view.toPlainText()

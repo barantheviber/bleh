@@ -10,6 +10,7 @@ from .tab_backtest import BacktestTab
 from .tab_bot import BotTab
 from .tab_chart import ChartTab
 from .tab_copycat import CopycatTab
+from .tab_guide import GuideTab
 from .tab_log import LogTab
 from .tab_market import MarketTab
 from .tab_news import CongressTab, NewsTab
@@ -24,7 +25,7 @@ DISCLAIMER = (
     "Ayarlar'dan Alpaca hesabı bağlayıp canlı işlemi ayrıca onaylamanız gerekir.<br><br>"
     "Seçilen strateji (Volatilite Hedefli Trend) büyük düşüşlerde zararı sınırlamak için "
     "tasarlandı; yükselen piyasada genelde S&P 500'ü al-tut yapmaktan <b>daha az</b> kazandırdı. "
-    "Ayrıntılar: Backtest sekmesi → Araştırma raporu.")
+    "Ayrıntılar ve stratejilerin dayandığı araştırmalar: Rehber sekmesi.")
 
 
 def app_icon():
@@ -62,13 +63,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.copycat = CopycatTab(ctx)
         self.news = NewsTab(ctx)
         self.congress = CongressTab(ctx)
+        self.guide = GuideTab(ctx)
         self.settings_tab = SettingsTab(ctx)
         self.log = LogTab(ctx)
         for w, name in ((self.chart, "Grafik"), (self.market, "Piyasa"),
                         (self.screener, "Tarayıcı"), (self.bot, "Bot"),
                         (self.backtest, "Backtest"), (self.alerts, "Alarmlar"),
                         (self.copycat, "13F Kopya"), (self.news, "Haberler"),
-                        (self.congress, "Kongre"), (self.settings_tab, "Ayarlar"),
+                        (self.congress, "Kongre"), (self.guide, "Rehber"),
+                        (self.settings_tab, "Ayarlar"),
                         (self.log, "Günlük")):
             self.tabs.addTab(w, name)
             if hasattr(w, "status"):
