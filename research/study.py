@@ -457,23 +457,7 @@ def regimes_md(reg):
            "getirisi ve oynaklığı. Uygulamadaki **Piyasa** sekmesi aynı göstergeleri bugünün "
            "verisiyle gösterir. Pencereler çakıştığı için gün sayısı bağımsız gözlem sayısını abartır; "
            "farkların bir kısmı tesadüf olabilir.\n" % h]
-    a = reg["all"]
-    out.append("Tüm günler: ortalama aylık getiri %s, yükselen ay oranı %.0f%%, kötü ay (%%5) %s, "
-               "sonraki oynaklık %s.\n" % (pct(a["mean"], 2), 100 * a["up"], pct(a["p5"]),
-                                           pct(a["vol"])))
-    for it in reg["indicators"]:
-        out.append("### %s (veri %s'den)\n" % (it["name"], it["since"]))
-        out.append("| Durum | Günlerin payı | Ort. 1 ay getiri | Yükselen ay oranı | Kötü ay (%5) | "
-                   "Sonraki oynaklık |\n|---|---|---|---|---|---|")
-        for r in it["rows"]:
-            s = r["stats"]
-            if not s:
-                out.append("| %s | (20 günden az) | | | | |" % r["label"])
-                continue
-            out.append("| %s | %.0f%% | %s | %.0f%% | %s | %s |" % (
-                r["label"], 100 * s["share"], pct(s["mean"], 2), 100 * s["up"], pct(s["p5"]),
-                pct(s["vol"])))
-        out.append("")
+    out.append(regime.history_markdown(reg))
     return out
 
 

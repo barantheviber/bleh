@@ -46,8 +46,8 @@ def window(qapp, tmp_path, monkeypatch):
 def test_tabs_and_chart_load(window):
     win, ctx, pump = window
     names = [win.tabs.tabText(i) for i in range(win.tabs.count())]
-    assert names == ["Grafik", "Bot", "Backtest", "13F Kopya", "Haberler", "Kongre", "Ayarlar",
-                     "Günlük"]
+    assert names == ["Grafik", "Piyasa", "Tarayıcı", "Bot", "Backtest", "Alarmlar", "13F Kopya",
+                     "Haberler", "Kongre", "Ayarlar", "Günlük"]
     bars = win.chart.chart.bars
     assert bars is not None and len(bars) > 100
     assert "SPY" in win.chart.chart.info.text()
@@ -121,3 +121,61 @@ def test_platform_window_and_symbols(window):
     pump(3)
     assert w.windowTitle().startswith("SPY")
     w.close()
+
+
+def test_market_tab_loads_offline(window):
+    win, ctx, pump = window
+    win.tabs.setCurrentWidget(win.market)
+    pump(30)
+    assert win.market.out is not None
+    assert win.market.verdict.text().startswith("Piyasa durumu:")
+    assert win.market.events.rowCount() > 0 and win.market.history.rowCount() >= 3
+    win.market.combo.setCurrentIndex(2)
+    assert len(win.market.curve.getData()[0]) > 100
+
+
+def test_screener_ranks_the_watchlist(window):
+    win, ctx, pump = window
+    tab = win.screener
+    tab.universe.setCurrentIndex(tab.universe.findText("İzleme listem"))
+    tab.run()
+    pump(30)
+    assert tab.table.rowCount() == len(ctx.settings.get("watchlist"))
+    assert ctx.settings.get("screener")["universe"] == "İzleme listem"
+    opened = []
+    tab.open_symbol.connect(opened.append)
+    tab.table.cellDoubleClicked.emit(0, 0)
+    assert opened == [tab.table.item(0, 0).text()]
+
+
+def test_alerts_add_check_and_notify(window):
+    win, ctx, pump = window
+    tab = win.alerts
+    tab.prefill("SPY", "price_above", 1.0)
+    tab.add()
+    pump(20)
+    saved = ctx.settings.get("alerts")
+    assert len(saved) == 1 and saved[0]["last_state"] is True     # learned, did not fire
+    fired = []
+    tab.fired.connect(lambda t, m: fired.append(t))
+    items = ctx.settings.get("alerts")
+    items[0]["last_state"] = False                                   # pretend it was below
+    ctx.settings.set("alerts", items)
+    tab.check()
+    pump(20)
+    assert fired == ["Alarm: SPY"] and ctx.settings.get("alerts")[0]["enabled"] is False
+    assert tab.log.count() == 1
+
+
+def test_sizing_dialog_computes_shares(window):
+    win, ctx, pump = window
+    win.open_sizing("SPY")
+    pump(20)
+    dlg = win._dialogs[-1]
+    dlg.stop_mode.setCurrentIndex(dlg.stop_mode.findData("pct"))
+    dlg.equity.setValue(10000)
+    dlg.risk.setValue(1.0)
+    dlg.entry.setValue(100.0)
+    dlg.stop_value.setValue(5.0)
+    assert "Adet: 20.0000" in dlg.result.text()                    # $100 risk / $5 per share
+    dlg.close()

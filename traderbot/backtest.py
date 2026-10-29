@@ -285,7 +285,7 @@ def trade_stats(trades, equity, years):
     """Round trips per symbol on an average-cost basis: a trip opens when a
     position goes from flat to long and closes when it is flat again."""
     pos, cost, bought, realized = {}, {}, {}, {}
-    trips = []
+    trips, pnls = [], []
     traded = 0.0
     for tr in trades:
         traded += tr.value
@@ -308,10 +308,20 @@ def trade_stats(trades, equity, years):
             if pos[s] <= 1e-9 * max(1.0, q):
                 pos[s] = 0.0
                 trips.append(realized[s] / bought[s] if bought[s] > 0 else 0.0)
+                pnls.append(realized[s])
     eq = np.asarray(equity, dtype=np.float64)
     avg_eq = float(np.nanmean(eq)) if len(eq) else 0.0
     wins = [x for x in trips if x > 0]
+    losses = [-x for x in trips if x < 0]
+    gain = sum(x for x in pnls if x > 0)
+    lost = -sum(x for x in pnls if x < 0)
     return {"trades": len(trades), "round_trips": len(trips),
             "win_rate": len(wins) / len(trips) if trips else None,
             "avg_trip": float(np.mean(trips)) if trips else None,
+            # per-trip returns of winners and losers (losses as positive numbers)
+            "avg_win": float(np.mean(wins)) if wins else None,
+            "avg_loss": float(np.mean(losses)) if losses else None,
+            "payoff": float(np.mean(wins) / np.mean(losses)) if wins and losses else None,
+            "profit_factor": gain / lost if lost > 0 else None,
+            "realized": float(sum(pnls)),
             "turnover": (traded / 2.0) / avg_eq / years if avg_eq > 0 and years > 0 else 0.0}

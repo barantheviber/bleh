@@ -271,6 +271,16 @@ class BacktestTab(QtWidgets.QWidget):
         self.status.emit("Backtest bitti: %s, yıllık %s, en büyük düşüş %s" % (
             strat.name, _f(m["cagr"], "pct"), _f(m["max_dd"], "pct")))
 
+    def kelly_hint(self):
+        """(win rate, payoff) of the last backtest's round trips, for the
+        position calculator's Kelly section; None before any run."""
+        if not self.result:
+            return None
+        m = self.result[3]
+        if m.get("win_rate") is None or not m.get("payoff"):
+            return None
+        return float(m["win_rate"]), float(m["payoff"])
+
     def apply_to_bot(self):
         try:
             strat = self.strategy()

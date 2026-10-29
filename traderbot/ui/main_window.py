@@ -4,12 +4,16 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from .. import APP_NAME, __version__, market_clock
 from . import theme, workers
+from .sizing_dialog import SizingDialog
+from .tab_alerts import AlertsTab
 from .tab_backtest import BacktestTab
 from .tab_bot import BotTab
 from .tab_chart import ChartTab
 from .tab_copycat import CopycatTab
 from .tab_log import LogTab
+from .tab_market import MarketTab
 from .tab_news import CongressTab, NewsTab
+from .tab_screener import ScreenerTab
 from .tab_settings import SettingsTab
 
 DISCLAIMER = (
@@ -50,14 +54,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1440, 900)
         self.tabs = QtWidgets.QTabWidget()
         self.chart = ChartTab(ctx)
+        self.market = MarketTab(ctx)
+        self.screener = ScreenerTab(ctx)
         self.bot = BotTab(ctx)
         self.backtest = BacktestTab(ctx)
+        self.alerts = AlertsTab(ctx)
         self.copycat = CopycatTab(ctx)
         self.news = NewsTab(ctx)
         self.congress = CongressTab(ctx)
         self.settings_tab = SettingsTab(ctx)
         self.log = LogTab(ctx)
-        for w, name in ((self.chart, "Grafik"), (self.bot, "Bot"), (self.backtest, "Backtest"),
+        for w, name in ((self.chart, "Grafik"), (self.market, "Piyasa"),
+                        (self.screener, "Tarayıcı"), (self.bot, "Bot"),
+                        (self.backtest, "Backtest"), (self.alerts, "Alarmlar"),
                         (self.copycat, "13F Kopya"), (self.news, "Haberler"),
                         (self.congress, "Kongre"), (self.settings_tab, "Ayarlar"),
                         (self.log, "Günlük")):
@@ -65,6 +74,14 @@ class MainWindow(QtWidgets.QMainWindow):
             if hasattr(w, "status"):
                 w.status.connect(self.show_message)
         self.setCentralWidget(self.tabs)
+        self._dialogs = []
+        for src in (self.chart, self.screener):
+            src.size_symbol.connect(self.open_sizing)
+            src.alert_symbol.connect(self.new_alert)
+        self.screener.open_symbol.connect(self.open_symbol)
+        self.screener.watch_symbol.connect(self.add_to_watchlist)
+        self.alerts.fired.connect(lambda title, msg: self.notify("alerts", title, msg))
+        ctx.event.connect(self._bot_event)
 
         self.market_label = QtWidgets.QLabel()
         self.broker_label = QtWidgets.QLabel()
@@ -107,6 +124,44 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def show_message(self, msg):
         self.statusBar().showMessage(msg, 10000)
+
+    # ------------------------------------------------------------ tools
+
+    def open_symbol(self, symbol):
+        self.chart.load_symbol(symbol)
+        self.tabs.setCurrentWidget(self.chart)
+
+    def open_sizing(self, symbol):
+        dlg = SizingDialog(self.ctx, symbol, self, kelly_hint=self.backtest.kelly_hint())
+        dlg.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        dlg.destroyed.connect(lambda *_: self._dialogs.remove(dlg) if dlg in self._dialogs else None)
+        self._dialogs.append(dlg)
+        dlg.show()
+
+    def new_alert(self, symbol):
+        self.alerts.prefill(symbol)
+        self.tabs.setCurrentWidget(self.alerts)
+
+    def add_to_watchlist(self, symbol):
+        w = self.chart.watch
+        if symbol not in w.symbols:
+            w.set_symbols(w.symbols + [symbol])
+            w._save()
+            w.refresh()
+        self.show_message("%s izleme listesine eklendi" % symbol)
+
+    def notify(self, kind, title, message):
+        """A Windows notification from the tray, if the user wants this kind."""
+        self.show_message("%s: %s" % (title, message))
+        if self.tray and (self.ctx.settings.get("notify") or {}).get(kind, True):
+            self.tray.showMessage(title, message, QtWidgets.QSystemTrayIcon.Information, 8000)
+
+    def _bot_event(self, kind, rec):
+        if kind in ("order", "approval"):
+            self.notify("orders", "TraderBot: emir" if kind == "order" else "TraderBot: onay bekliyor",
+                        rec.get("message", ""))
+        elif kind == "halted":
+            self.notify("halts", "TraderBot: ACİL DURUM", rec.get("message", ""))
 
     def _settings_changed(self):
         live = self.ctx.is_live()
