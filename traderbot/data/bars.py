@@ -117,9 +117,10 @@ class Bars(object):
     def save_csv(self, path):
         data = self.to_csv_text().encode("utf-8")
         if path.endswith(".gz"):
-            # mtime=0 keeps the file byte-identical when the data has not changed
+            # no name and mtime=0 keep the file byte-identical when the data has
+            # not changed, so a refresh with no new data is not a git change
             with open(path, "wb") as fh:
-                with gzip.GzipFile(fileobj=fh, mode="wb", mtime=0) as gz:
+                with gzip.GzipFile(filename="", fileobj=fh, mode="wb", mtime=0) as gz:
                     gz.write(data)
         else:
             with open(path, "wb") as fh:

@@ -1,0 +1,222 @@
+{
+ "fetched_at": "2026-10-28T20:38:57Z",
+ "tickers": {
+  "AAPL": {
+   "adjusted": true,
+   "first": "1980-12-12",
+   "last": "2026-10-28",
+   "rows": 11562,
+   "source": "yahoo"
+  },
+  "AGG": {
+   "adjusted": true,
+   "first": "2003-09-29",
+   "last": "2026-10-28",
+   "rows": 5808,
+   "source": "yahoo"
+  },
+  "AXP": {
+   "adjusted": true,
+   "first": "1972-06-01",
+   "last": "2026-10-28",
+   "rows": 13716,
+   "source": "yahoo"
+  },
+  "BAC": {
+   "adjusted": true,
+   "first": "1973-02-21",
+   "last": "2026-10-28",
+   "rows": 13536,
+   "source": "yahoo"
+  },
+  "BIL": {
+   "adjusted": true,
+   "first": "2007-05-30",
+   "last": "2026-10-28",
+   "rows": 4886,
+   "source": "yahoo"
+  },
+  "DBC": {
+   "adjusted": true,
+   "first": "2006-02-06",
+   "last": "2026-10-28",
+   "rows": 5215,
+   "source": "yahoo"
+  },
+  "DIA": {
+   "adjusted": true,
+   "first": "1998-01-20",
+   "last": "2026-10-28",
+   "rows": 7239,
+   "source": "yahoo"
+  },
+  "EEM": {
+   "adjusted": true,
+   "first": "2003-04-14",
+   "last": "2026-10-28",
+   "rows": 5924,
+   "source": "yahoo"
+  },
+  "EFA": {
+   "adjusted": true,
+   "first": "2001-08-27",
+   "last": "2026-10-28",
+   "rows": 6330,
+   "source": "yahoo"
+  },
+  "GLD": {
+   "adjusted": true,
+   "first": "2004-11-18",
+   "last": "2026-10-28",
+   "rows": 5520,
+   "source": "yahoo"
+  },
+  "GOOGL": {
+   "adjusted": true,
+   "first": "2004-08-19",
+   "last": "2026-10-28",
+   "rows": 5584,
+   "source": "yahoo"
+  },
+  "IEF": {
+   "adjusted": true,
+   "first": "2002-07-30",
+   "last": "2026-10-28",
+   "rows": 6102,
+   "source": "yahoo"
+  },
+  "IWM": {
+   "adjusted": true,
+   "first": "2000-05-26",
+   "last": "2026-10-28",
+   "rows": 6645,
+   "source": "yahoo"
+  },
+  "KO": {
+   "adjusted": true,
+   "first": "1962-01-02",
+   "last": "2026-10-28",
+   "rows": 16315,
+   "source": "yahoo"
+  },
+  "LQD": {
+   "adjusted": true,
+   "first": "2002-07-30",
+   "last": "2026-10-28",
+   "rows": 6102,
+   "source": "yahoo"
+  },
+  "MSFT": {
+   "adjusted": true,
+   "first": "1986-03-13",
+   "last": "2026-10-28",
+   "rows": 10236,
+   "source": "yahoo"
+  },
+  "QQQ": {
+   "adjusted": true,
+   "first": "1999-03-10",
+   "last": "2026-10-28",
+   "rows": 6953,
+   "source": "yahoo"
+  },
+  "SHY": {
+   "adjusted": true,
+   "first": "2002-07-30",
+   "last": "2026-10-28",
+   "rows": 6102,
+   "source": "yahoo"
+  },
+  "SPY": {
+   "adjusted": true,
+   "first": "1993-01-29",
+   "last": "2026-10-28",
+   "rows": 8495,
+   "source": "yahoo"
+  },
+  "TIP": {
+   "adjusted": true,
+   "first": "2003-12-05",
+   "last": "2026-10-28",
+   "rows": 5760,
+   "source": "yahoo"
+  },
+  "TLT": {
+   "adjusted": true,
+   "first": "2002-07-30",
+   "last": "2026-10-28",
+   "rows": 6102,
+   "source": "yahoo"
+  },
+  "VNQ": {
+   "adjusted": true,
+   "first": "2004-09-29",
+   "last": "2026-10-28",
+   "rows": 5556,
+   "source": "yahoo"
+  },
+  "XLB": {
+   "adjusted": true,
+   "first": "1998-12-22",
+   "last": "2026-10-28",
+   "rows": 7005,
+   "source": "yahoo"
+  },
+  "XLE": {
+   "adjusted": true,
+   "first": "1998-12-22",
+   "last": "2026-10-28",
+   "rows": 7005,
+   "source": "yahoo"
+  },
+  "XLF": {
+   "adjusted": true,
+   "first": "1998-12-22",
+   "last": "2026-10-28",
+   "rows": 7005,
+   "source": "yahoo"
+  },
+  "XLI": {
+   "adjusted": true,
+   "first": "1998-12-22",
+   "last": "2026-10-28",
+   "rows": 7005,
+   "source": "yahoo"
+  },
+  "XLK": {
+   "adjusted": true,
+   "first": "1998-12-22",
+   "last": "2026-10-28",
+   "rows": 7005,
+   "source": "yahoo"
+  },
+  "XLP": {
+   "adjusted": true,
+   "first": "1998-12-22",
+   "last": "2026-10-28",
+   "rows": 7005,
+   "source": "yahoo"
+  },
+  "XLU": {
+   "adjusted": true,
+   "first": "1998-12-22",
+   "last": "2026-10-28",
+   "rows": 7005,
+   "source": "yahoo"
+  },
+  "XLV": {
+   "adjusted": true,
+   "first": "1998-12-22",
+   "last": "2026-10-28",
+   "rows": 7005,
+   "source": "yahoo"
+  },
+  "XLY": {
+   "adjusted": true,
+   "first": "1998-12-22",
+   "last": "2026-10-28",
+   "rows": 7005,
+   "source": "yahoo"
+  }
+ }
+}

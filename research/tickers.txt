@@ -1,0 +1,9 @@
+# Daily history downloaded by research/fetch_data.py (one CI run per change).
+# ETFs: broad US market, international, bonds and T-bills, commodities, REITs
+SPY QQQ IWM DIA EFA EEM
+TLT IEF SHY BIL AGG LQD TIP
+GLD DBC VNQ
+# The nine original sector SPDRs (all trade since 1998)
+XLK XLF XLV XLE XLI XLY XLP XLU XLB
+# trader-skill's example portfolio (Berkshire's top 5) plus MSFT
+AAPL AXP GOOGL KO BAC MSFT
