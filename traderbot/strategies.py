@@ -12,9 +12,15 @@ not invest in a T-bill ETF (BIL by default) or, before that ETF existed, cash.
 import numpy as np
 
 from . import indicators as ind
+from . import market_clock
 
 SECTORS = ["XLK", "XLF", "XLV", "XLE", "XLI", "XLY", "XLP", "XLU", "XLB"]
 ROTATION_UNIVERSE = ["SPY", "QQQ", "IWM", "EFA", "EEM", "TLT", "IEF", "GLD", "DBC", "VNQ"]
+# one ETF per asset class: US, developed and emerging stocks, Treasuries, gold,
+# commodities, real estate
+ASSET_CLASSES = ["SPY", "EFA", "EEM", "IEF", "GLD", "DBC", "VNQ"]
+# Faber (2007): US stocks, foreign stocks, 10-year Treasuries, commodities, REITs
+FABER_UNIVERSE = ["SPY", "EFA", "IEF", "DBC", "VNQ"]
 MONTH = 21  # trading days
 
 
@@ -69,6 +75,10 @@ class Strategy(object):
 def _short(v):
     if isinstance(v, (list, tuple)):
         return "[%s]" % ",".join(str(x) for x in v) if len(v) <= 4 else "[%d]" % len(v)
+    if isinstance(v, dict):
+        if len(v) > 4:
+            return "{%d}" % len(v)
+        return "{%s}" % ",".join("%s:%.3g" % (k, x) for k, x in v.items())
     return v
 
 
@@ -100,6 +110,44 @@ def hold_between(decisions, ends, first_ok):
         if cur is not None:
             W[t] = cur
     return W
+
+
+def inverse_vol(vols):
+    """Weights proportional to 1/volatility over the finite, positive entries
+    (equal risk from each asset when correlations are alike); 0 elsewhere."""
+    vols = np.asarray(vols, dtype=np.float64)
+    ok = np.isfinite(vols) & (vols > 0)
+    w = np.zeros(len(vols))
+    if ok.any():
+        w[ok] = 1.0 / vols[ok]
+        w /= w.sum()
+    return w
+
+
+def nyse_calendar(first_year, last_year):
+    """numpy business-day calendar with NYSE's holidays."""
+    hol = sorted(d for y in range(first_year, last_year + 1) for d in market_clock.holidays(y))
+    return np.busdaycalendar(holidays=np.array(hol, dtype="datetime64[D]"))
+
+
+def turn_of_month(dates, before, after):
+    """For each date: is the NEXT NYSE session one of the last `before` or the
+    first `after` sessions of its month? The exchange calendar is published in
+    advance, so this uses no future prices. A weight decided at a close fills
+    at the next open, so holding on these rows means holding on those days."""
+    d = np.asarray(dates).astype("datetime64[D]")
+    out = np.zeros(len(d), dtype=bool)
+    if not len(d):
+        return out
+    years = d.astype("datetime64[Y]").astype(int) + 1970
+    cal = nyse_calendar(int(years.min()) - 1, int(years.max()) + 1)
+    day = np.timedelta64(1, "D")
+    nxt = np.busday_offset(d + day, 0, roll="forward", busdaycal=cal)
+    month = nxt.astype("datetime64[M]")
+    nth = np.busday_count(month.astype("datetime64[D]"), nxt, busdaycal=cal) + 1
+    month_end = (month + np.timedelta64(1, "M")).astype("datetime64[D]")
+    left = np.busday_count(nxt + day, month_end, busdaycal=cal)
+    return (nth <= int(after)) | (left < int(before))
 
 
 # ---------------------------------------------------------------- strategies
@@ -376,9 +424,182 @@ class VolTargetTrend(Strategy):
         return W
 
 
+class RiskParity(Strategy):
+    key = "risk_parity"
+    name = "Risk Paritesi (ters oynaklık)"
+    summary = ("Her ay sonunda hisse, tahvil, altın, emtia ve gayrimenkul ETF'lerini oynaklıklarıyla "
+               "ters orantılı tutar; her varlık portföy riskine yaklaşık eşit katkı yapar. Kaldıraç "
+               "kullanmaz, bu yüzden tahvil payı yüksektir.")
+    params = {"universe": ASSET_CLASSES, "vol_n": 63, "min_assets": 3}
+
+    def symbols(self):
+        return list(self.p["universe"])
+
+    def warmup(self):
+        return int(self.p["vol_n"]) + 1
+
+    def weights(self, panel):
+        uni = list(self.p["universe"])
+        vols = np.column_stack([ind.realized_vol(panel.close(s), self.p["vol_n"]) for s in uni])
+        avail = np.isfinite(vols) & (vols > 0)
+        ready = avail.sum(axis=1) >= int(self.p["min_assets"])
+        dec = np.full((len(panel), len(uni)), np.nan)
+        for t in np.nonzero(ready)[0]:
+            dec[t] = inverse_vol(vols[t])
+        return hold_between(dec, period_ends(panel.dates, next_date=panel.next_session), 0)
+
+
+class TimeSeriesMomentum(Strategy):
+    key = "tsmom"
+    name = "Çoklu Varlık Trendi (TSMOM)"
+    summary = ("Her ay sonunda her varlık sınıfının son dönem getirisine bakar: hazine bonosunu "
+               "geçenleri oynaklıklarıyla ters orantılı ağırlıkla tutar, geçemeyenlerin payı BIL'e "
+               "gider. Moskowitz, Ooi ve Pedersen'in (2012) zaman serisi momentumu, kaldıraçsız.")
+    params = {"universe": ASSET_CLASSES, "lookback": 12 * MONTH, "vol_n": 63, "min_assets": 3,
+              "off": "BIL"}
+
+    def symbols(self):
+        return list(self.p["universe"]) + [self.p["off"]]
+
+    def warmup(self):
+        return max(int(self.p["lookback"]), int(self.p["vol_n"]) + 1)
+
+    def weights(self, panel):
+        uni = list(self.p["universe"])
+        n, L = len(uni), int(self.p["lookback"])
+        closes = [panel.close(s) for s in uni]
+        vols = np.column_stack([ind.realized_vol(c, self.p["vol_n"]) for c in closes])
+        mom = np.column_stack([ind.momentum(c, L) for c in closes])
+        off = self.p["off"]
+        cash = ind.momentum(panel.close(off), L) if off in panel.col else np.zeros(len(panel))
+        cash = np.where(np.isfinite(cash), cash, 0.0)
+        off_ok = np.isfinite(panel.close(off)) if off in panel.col else np.zeros(len(panel), bool)
+        avail = np.isfinite(vols) & (vols > 0) & np.isfinite(mom)
+        ready = avail.sum(axis=1) >= int(self.p["min_assets"])
+        dec = np.full((len(panel), n + 1), np.nan)
+        for t in np.nonzero(ready)[0]:
+            row = np.zeros(n + 1)
+            w = inverse_vol(np.where(avail[t], vols[t], np.nan))
+            row[:n] = np.where(avail[t] & (mom[t] > cash[t]), w, 0.0)
+            if off_ok[t]:
+                row[n] = max(0.0, 1.0 - row[:n].sum())
+            dec[t] = row
+        return hold_between(dec, period_ends(panel.dates, next_date=panel.next_session), 0)
+
+
+class Gtaa(Strategy):
+    key = "gtaa"
+    name = "Faber GTAA (10 aylık ortalama)"
+    summary = ("ABD ve dünya hisseleri, tahvil, emtia ve gayrimenkule eşit pay ayırır. Ay sonunda "
+               "fiyatı 10 aylık ortalamasının altında kalan varlığın payı BIL'e geçer. Meb Faber'in "
+               "(2007) taktik varlık dağılımı.")
+    params = {"universe": FABER_UNIVERSE, "months": 10, "off": "BIL"}
+
+    def symbols(self):
+        return list(self.p["universe"]) + [self.p["off"]]
+
+    def warmup(self):
+        return (int(self.p["months"]) + 1) * MONTH
+
+    def weights(self, panel):
+        uni = list(self.p["universe"])
+        n, m = len(uni), int(self.p["months"])
+        closes = np.column_stack([panel.close(s) for s in uni])
+        off = self.p["off"]
+        off_ok = np.isfinite(panel.close(off)) if off in panel.col else np.zeros(len(panel), bool)
+        ends = period_ends(panel.dates, next_date=panel.next_session)
+        idx = np.nonzero(ends)[0]
+        dec = np.full((len(panel), n + 1), np.nan)
+        for j in range(m - 1, len(idx)):
+            # the last m month-end closes, this month's included (Faber's 10-month SMA)
+            window = closes[idx[j - m + 1:j + 1]]
+            ok = np.all(np.isfinite(window), axis=0)
+            if ok.sum() < (n + 1) // 2:
+                continue
+            t = idx[j]
+            row = np.zeros(n + 1)
+            above = ok & (closes[t] > np.where(ok, window.mean(axis=0), np.inf))
+            row[:n] = np.where(above, 1.0 / n, 0.0)
+            if off_ok[t]:
+                row[n] = 1.0 - row[:n].sum()
+            dec[t] = row
+        return hold_between(dec, ends, 0)
+
+
+class TurnOfMonth(Strategy):
+    key = "turn_of_month"
+    name = "Ay Dönümü Etkisi"
+    summary = ("Ayın son N ve yeni ayın ilk M işlem gününde SPY tutar, diğer günlerde BIL'de "
+               "bekler. McConnell ve Xu'nun (2008) belgelediği takvim etkisi; son yıllarda "
+               "zayıfladığını gösteren çalışmalar da var.")
+    params = {"symbol": "SPY", "before": 1, "after": 3, "off": "BIL"}
+
+    def symbols(self):
+        return [self.p["symbol"], self.p["off"]]
+
+    def weights(self, panel):
+        c = panel.close(self.p["symbol"])
+        on = turn_of_month(panel.dates, self.p["before"], self.p["after"]).astype(float)
+        W = self._blank(panel)
+        W[:, 0] = on
+        self._park(W, panel, 1, on)
+        W[~np.isfinite(c)] = np.nan
+        return W
+
+
+class Ensemble(Strategy):
+    key = "ensemble"
+    name = "Strateji Karması"
+    summary = ("Birkaç stratejiyi sabit paylarla birlikte çalıştırır (varsayılan: yarı Volatilite "
+               "Hedefli Trend, yarı Faber GTAA). Farklı varlıklar ve kurallar birbirinin kötü "
+               "dönemlerini yumuşatır. Pay yazımı: strateji_anahtarı=pay.")
+    params = {"parts": {"vol_target": 0.5, "gtaa": 0.5}}
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        parts = {}
+        for k, v in dict(self.p["parts"]).items():
+            k = str(k).strip().lower()
+            if float(v) > 0:
+                parts[k] = parts.get(k, 0.0) + float(v)
+        bad = sorted(k for k in parts if k not in REGISTRY or k in ("ensemble", "fixed_weights"))
+        if not parts or bad:
+            raise ValueError("ensemble: geçersiz parça(lar) %s; seçenekler: %s" % (
+                ", ".join(bad) or "(boş)",
+                ", ".join(k for k in REGISTRY if k not in ("ensemble", "fixed_weights"))))
+        tot = sum(parts.values())
+        self.p["parts"] = {k: v / tot for k, v in parts.items()}
+        self.members = [(REGISTRY[k](), share) for k, share in self.p["parts"].items()]
+        # one continuous member makes the blend continuous: trade on drift only
+        self.trade_on_change = all(m.trade_on_change for m, _ in self.members)
+
+    def symbols(self):
+        return list(dict.fromkeys(s for m, _ in self.members for s in m.symbols()))
+
+    def inputs(self):
+        return list(dict.fromkeys(s for m, _ in self.members for s in m.inputs()))
+
+    def warmup(self):
+        return max(m.warmup() for m, _ in self.members)
+
+    def weights(self, panel):
+        syms = self.symbols()
+        col = {s: i for i, s in enumerate(syms)}
+        W = np.zeros((len(panel), len(syms)))
+        ready = np.ones(len(panel), dtype=bool)
+        for m, share in self.members:
+            Wm = m.weights(panel)
+            ready &= np.all(np.isfinite(Wm), axis=1)
+            for j, s in enumerate(m.symbols()):
+                W[:, col[s]] += share * np.nan_to_num(Wm[:, j])
+        W[~ready] = np.nan
+        return W
+
+
 REGISTRY = {cls.key: cls for cls in (BuyHold, FixedWeights, SmaTrend, GoldenCross, Rsi2,
                                      DualMomentum, SectorRotation, AssetRotation,
-                                     VolTargetTrend)}
+                                     VolTargetTrend, Gtaa, TimeSeriesMomentum, RiskParity,
+                                     TurnOfMonth, Ensemble)}
 
 
 def create(key, **params):
