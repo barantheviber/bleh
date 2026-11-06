@@ -7,3 +7,6 @@ GLD DBC VNQ
 XLK XLF XLV XLE XLI XLY XLP XLU XLB
 # trader-skill's example portfolio (Berkshire's top 5) plus MSFT
 AAPL AXP GOOGL KO BAC MSFT
+# Market regime study: VIX and its 3-month version, 10-year and 13-week
+# Treasury yields, high-yield corporate bonds
+^VIX ^VIX3M ^TNX ^IRX HYG

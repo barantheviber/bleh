@@ -7,6 +7,7 @@ import pyqtgraph as pg
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from .. import market_clock, strategies
+from ..backtest import trade_stats, trades_from_orders
 from . import theme
 from .workers import run_async
 
@@ -101,6 +102,12 @@ class BotTab(QtWidgets.QWidget):
         self.positions = _table(["Sembol", "Adet", "Ort. maliyet", "Fiyat", "Değer", "K/Z", "K/Z %"])
         self.pending = _table(["Emir", "Neden", ""], stretch=1)
         self.orders = _table(["Zaman", "Sembol", "Yön", "Miktar", "Durum", "Dolum fiyatı"], stretch=0)
+        self.stats = _table(["Ölçü", "Değer"], stretch=0)
+        self.stats.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.stats_note = theme.label(
+            "Kapanan işlemlerden (bir pozisyonun açılıp tamamen satılması) hesaplanır. Birkaç tur "
+            "ile bu oranlar şansa çok bağlıdır; strateji değerlendirmesi için Backtest sekmesine "
+            "bakın.", "muted", wrap=True)
         self.journal = QtWidgets.QListWidget()
         self.journal.setWordWrap(True)
         self.equity_plot = pg.PlotWidget(axisItems={"bottom": pg.DateAxisItem(orientation="bottom")})
@@ -132,6 +139,12 @@ class BotTab(QtWidgets.QWidget):
         tabs = QtWidgets.QTabWidget()
         tabs.addTab(self.journal, "Karar günlüğü")
         tabs.addTab(self.orders, "Emir geçmişi")
+        stats_page = QtWidgets.QWidget()
+        sp = QtWidgets.QVBoxLayout(stats_page)
+        sp.setContentsMargins(0, 0, 0, 0)
+        sp.addWidget(self.stats, 1)
+        sp.addWidget(self.stats_note)
+        tabs.addTab(stats_page, "İşlem istatistikleri")
         rl.addWidget(tabs, 4)
         split = QtWidgets.QSplitter()
         split.addWidget(left)
@@ -287,9 +300,16 @@ class BotTab(QtWidgets.QWidget):
         self._again = False
         broker = self.ctx.broker
 
+        data = self.ctx.data
+
         def fetch():
-            return {"account": broker.account(), "positions": broker.positions(),
-                    "orders": broker.orders(limit=100)}
+            out = {"account": broker.account(), "positions": broker.positions(),
+                   "orders": broker.orders(limit=500), "usdtry": None}
+            try:
+                out["usdtry"] = data.prices(["TRY=X"]).get("TRY=X")
+            except Exception:  # the TL figure is a nicety, never block the account view
+                pass
+            return out
 
         run_async(fetch, done=self._show, failed=self._show_failed)
 
@@ -368,11 +388,15 @@ class BotTab(QtWidgets.QWidget):
 
     def _show(self, data):
         self._landed()
-        acct, pos, orders = data["account"], data["positions"], data["orders"]
+        acct, pos, all_orders = data["account"], data["positions"], data["orders"]
+        orders = all_orders[:100]
         st = self.ctx.engine.snapshot()
         start = (st.get("day") or {}).get("start_equity")
         peak = st.get("peak_equity")
-        self.cards["equity"].set(money(acct.equity), acct.broker or "")
+        rate = data.get("usdtry")
+        tl = (" · ≈ ₺{:,.0f}".format(acct.equity * rate)) if rate else ""
+        self.cards["equity"].set(money(acct.equity), (acct.broker or "") + tl)
+        self.cards["equity"].setToolTip("USD/TRY %.4f (Yahoo, TRY=X)" % rate if rate else "")
         self.cards["cash"].set(money(acct.cash), "alım gücü %s" % money(acct.buying_power))
         if start:
             d = acct.equity - start
@@ -403,6 +427,7 @@ class BotTab(QtWidgets.QWidget):
                                       o.symbol, "AL" if o.side == "buy" else "SAT", amt, o.status,
                                       "" if o.filled_avg_price is None else "%.2f" % o.filled_avg_price],
                      {2: theme.UP if o.side == "buy" else theme.DOWN})
+        self._show_stats(all_orders, pos)
         # current weights next to the targets
         if self.targets.rowCount() and acct.equity > 0:
             cur = {p.symbol: 100 * p.market_value / acct.equity for p in pos}
@@ -414,6 +439,27 @@ class BotTab(QtWidgets.QWidget):
                          {3: theme.WARN if abs(now - tgt) > float(
                              (self.ctx.settings.get("risk") or {}).get("rebalance_band_pct") or 5)
                           else theme.MUTED})
+
+    def _show_stats(self, orders, positions):
+        s = trade_stats(trades_from_orders(orders), [1.0], 1.0)
+        unreal = sum(p.unrealized_pl for p in positions if p.unrealized_pl is not None)
+        rows = [("Dolan emir", "%d" % s["trades"]),
+                ("Kapanan işlem (tam tur)", "%d" % s["round_trips"]),
+                ("Kazanan işlem oranı", "—" if s["win_rate"] is None else "%.0f%%" % (100 * s["win_rate"])),
+                ("Ortalama kazanç", "—" if s["avg_win"] is None else "%+.2f%%" % (100 * s["avg_win"])),
+                ("Ortalama kayıp", "—" if s["avg_loss"] is None else "-%.2f%%" % (100 * s["avg_loss"])),
+                ("Kazanç / kayıp oranı", "—" if s["payoff"] is None else "%.2f" % s["payoff"]),
+                ("Kâr faktörü", "—" if s["profit_factor"] is None else "%.2f" % s["profit_factor"]),
+                ("Gerçekleşen kâr/zarar", money(s["realized"])),
+                ("Açık pozisyonların kâr/zararı", money(unreal))]
+        self.stats.setRowCount(len(rows))
+        for r, (name, value) in enumerate(rows):
+            color = None
+            if name.startswith("Gerçekleşen"):
+                color = theme.color_for(s["realized"])
+            elif name.startswith("Açık"):
+                color = theme.color_for(unreal)
+            _set_row(self.stats, r, [name, value], {1: color})
 
     def _show_targets(self, res):
         t = (res.get("targets") or {}).get("weights") or {}

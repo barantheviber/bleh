@@ -1,5 +1,5 @@
 {
- "fetched_at": "2026-10-28T20:38:57Z",
+ "fetched_at": "2026-10-29T18:36:08Z",
  "tickers": {
   "AAPL": {
    "adjusted": true,
@@ -76,6 +76,13 @@
    "first": "2004-08-19",
    "last": "2026-10-28",
    "rows": 5584,
+   "source": "yahoo"
+  },
+  "HYG": {
+   "adjusted": true,
+   "first": "2007-04-11",
+   "last": "2026-10-28",
+   "rows": 4920,
    "source": "yahoo"
   },
   "IEF": {
@@ -216,6 +223,34 @@
    "first": "1998-12-22",
    "last": "2026-10-28",
    "rows": 7005,
+   "source": "yahoo"
+  },
+  "^IRX": {
+   "adjusted": true,
+   "first": "1960-01-04",
+   "last": "2026-10-28",
+   "rows": 16691,
+   "source": "yahoo"
+  },
+  "^TNX": {
+   "adjusted": true,
+   "first": "1962-01-02",
+   "last": "2026-10-28",
+   "rows": 16194,
+   "source": "yahoo"
+  },
+  "^VIX": {
+   "adjusted": true,
+   "first": "1990-01-02",
+   "last": "2026-10-28",
+   "rows": 9276,
+   "source": "yahoo"
+  },
+  "^VIX3M": {
+   "adjusted": true,
+   "first": "2006-07-17",
+   "last": "2026-10-28",
+   "rows": 5104,
    "source": "yahoo"
   }
  }

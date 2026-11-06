@@ -93,6 +93,15 @@ class SettingsTab(QtWidgets.QWidget):
         bt.addRow("Karar saati (New York)", self.trade_time)
         bt.addRow(self.sell_untracked)
         bt.addRow(self.autostart)
+        notify = s.get("notify") or {}
+        self.notify_boxes = {}
+        for key, text in (("orders", "Windows bildirimi: botun emirleri ve onay bekleyenler"),
+                          ("halts", "Windows bildirimi: acil durum (kill switch)"),
+                          ("alerts", "Windows bildirimi: çalan alarmlar")):
+            box = QtWidgets.QCheckBox(text)
+            box.setChecked(bool(notify.get(key, True)))
+            self.notify_boxes[key] = box
+            bt.addRow(box)
         bt.addRow(theme.label("Bot, uygulama açıkken (tepside de olur) günde bir kez çalışır. "
                               "NY 10:00, Türkiye saatiyle 17:00'dir; ABD kış saatinde (Kasım başı - "
                               "Mart ortası) 18:00.", "muted", wrap=True))
@@ -263,6 +272,7 @@ class SettingsTab(QtWidgets.QWidget):
             "sec_user_agent": ua,
             "refresh_seconds": int(self.refresh.value()),
             "platform": self.platform.currentData(),
+            "notify": {k: b.isChecked() for k, b in self.notify_boxes.items()},
         }, save=False)
         if self.key_id.text().strip():
             s.set_secret("alpaca_key_id", self.key_id.text().strip(), save=False)

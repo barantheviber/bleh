@@ -18,8 +18,13 @@ import sys
 import time
 import urllib.request
 
+import numpy as np
+
+from traderbot import market_clock
 from traderbot.data.bars import Bars
 from traderbot.data.yahoo import UA, DataError, YahooClient
+
+SETTLE = _dt.timedelta(minutes=30)
 
 
 def read_tickers(path):
@@ -29,6 +34,21 @@ def read_tickers(path):
             line = line.split("#", 1)[0]
             out.extend(t.strip().upper() for t in line.split() if t.strip())
     return list(dict.fromkeys(out))
+
+
+def drop_unfinished(bars, utc=None):
+    """While a session runs, Yahoo's daily series ends with today's bar and
+    its 'close' is only the latest trade. Drop a bar dated today (New York)
+    until half an hour after the close, when the closing prints have settled."""
+    if bars is None or not len(bars):
+        return bars
+    st = market_clock.status(utc)
+    sess = st["session"]
+    if bars.date_str(-1) != st["ny"].date().isoformat() or sess is None:
+        return bars
+    if st["ny"] >= sess[1] + SETTLE:
+        return bars
+    return bars.take(np.arange(len(bars) - 1))
 
 
 def from_stooq(ticker, timeout=30):
@@ -76,6 +96,7 @@ def main(argv=None):
                 source = "stooq"
             except Exception as exc2:  # report both failures, keep going
                 err = "%s | stooq: %s" % (err, exc2)
+        bars = drop_unfinished(bars)
         if bars is not None and len(bars) > 20:
             years = (bars.t[-1] - bars.t[0]) / (365.25 * 86400)
             if years > 0.5 and len(bars) / years < 200:
